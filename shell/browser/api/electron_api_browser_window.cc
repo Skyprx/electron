@@ -4,8 +4,6 @@
 
 #include "shell/browser/api/electron_api_browser_window.h"
 
-#include <memory>
-
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"  // nogncheck
 #include "content/browser/renderer_host/render_widget_host_owner_delegate.h"  // nogncheck
@@ -77,10 +75,6 @@ BrowserWindow::BrowserWindow(gin::Arguments* args,
   api_web_contents_ = web_contents->GetWeakPtr();
   api_web_contents_->AddObserver(this);
   Observe(api_web_contents_->web_contents());
-
-  // Keep a copy of the options for later use.
-  gin_helper::Dictionary(isolate, web_contents.ToV8().As<v8::Object>())
-      .Set("browserWindowOptions", options);
 
   // Associate with BrowserWindow.
   web_contents->SetOwnerWindow(window());
@@ -238,18 +232,35 @@ void BrowserWindow::OnCloseButtonClicked(bool* prevent_default) {
   if (window_unresponsive_closure_.IsCancelled())
     ScheduleUnresponsiveEvent(5000);
 
+  // Already closed by renderer.
   if (!web_contents())
-    // Already closed by renderer
     return;
 
   // Required to make beforeunload handler work.
   api_web_contents_->NotifyUserActivation();
 
-  if (web_contents()->NeedToFireBeforeUnloadOrUnloadEvents())
+  // Trigger beforeunload events for associated BrowserViews.
+  for (NativeBrowserView* view : window_->browser_views()) {
+    auto* vwc = view->web_contents();
+    auto* api_web_contents = api::WebContents::From(vwc);
+
+    // Required to make beforeunload handler work.
+    if (api_web_contents)
+      api_web_contents->NotifyUserActivation();
+
+    if (vwc) {
+      if (vwc->NeedToFireBeforeUnloadOrUnloadEvents()) {
+        vwc->DispatchBeforeUnload(false /* auto_cancel */);
+      }
+    }
+  }
+
+  if (web_contents()->NeedToFireBeforeUnloadOrUnloadEvents()) {
     web_contents()->DispatchBeforeUnload(false /* auto_cancel */);
-  else
+  } else {
     web_contents()->Close();
-}
+  }
+}  // namespace api
 
 void BrowserWindow::OnWindowBlur() {
   if (api_web_contents_)
@@ -276,6 +287,7 @@ void BrowserWindow::OnWindowIsKeyChanged(bool is_key) {
   auto* rwhv = web_contents()->GetRenderWidgetHostView();
   if (rwhv)
     rwhv->SetActive(is_key);
+  window()->SetActive(is_key);
 #endif
 }
 

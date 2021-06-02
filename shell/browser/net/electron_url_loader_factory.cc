@@ -10,6 +10,7 @@
 
 #include "base/guid.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
 #include "mojo/public/cpp/system/data_pipe_producer.h"
@@ -100,7 +101,7 @@ network::mojom::URLResponseHeadPtr ToResponseHead(
     return head;
   }
 
-  int status_code = 200;
+  int status_code = net::HTTP_OK;
   dict.Get("statusCode", &status_code);
   head->headers = new net::HttpResponseHeaders(base::StringPrintf(
       "HTTP/1.1 %d %s", status_code,
@@ -192,7 +193,6 @@ ElectronURLLoaderFactory::~ElectronURLLoaderFactory() = default;
 
 void ElectronURLLoaderFactory::CreateLoaderAndStart(
     mojo::PendingReceiver<network::mojom::URLLoader> loader,
-    int32_t routing_id,
     int32_t request_id,
     uint32_t options,
     const network::ResourceRequest& request,
@@ -200,11 +200,11 @@ void ElectronURLLoaderFactory::CreateLoaderAndStart(
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   mojo::PendingRemote<network::mojom::URLLoaderFactory> proxy_factory;
-  handler_.Run(request, base::BindOnce(&ElectronURLLoaderFactory::StartLoading,
-                                       std::move(loader), routing_id,
-                                       request_id, options, request,
-                                       std::move(client), traffic_annotation,
-                                       std::move(proxy_factory), type_));
+  handler_.Run(
+      request,
+      base::BindOnce(&ElectronURLLoaderFactory::StartLoading, std::move(loader),
+                     request_id, options, request, std::move(client),
+                     traffic_annotation, std::move(proxy_factory), type_));
 }
 
 // static
@@ -222,7 +222,6 @@ void ElectronURLLoaderFactory::OnComplete(
 // static
 void ElectronURLLoaderFactory::StartLoading(
     mojo::PendingReceiver<network::mojom::URLLoader> loader,
-    int32_t routing_id,
     int32_t request_id,
     uint32_t options,
     const network::ResourceRequest& request,
@@ -312,7 +311,7 @@ void ElectronURLLoaderFactory::StartLoading(
           std::move(proxy_factory));
 
       proxy_factory_remote->CreateLoaderAndStart(
-          std::move(loader), routing_id, request_id, options, new_request,
+          std::move(loader), request_id, options, new_request,
           std::move(client), traffic_annotation);
     } else {
       StartLoadingHttp(std::move(loader), new_request, std::move(client),
@@ -356,7 +355,7 @@ void ElectronURLLoaderFactory::StartLoading(
                    network::URLLoaderCompletionStatus(net::ERR_FAILED));
         return;
       }
-      StartLoading(std::move(loader), routing_id, request_id, options, request,
+      StartLoading(std::move(loader), request_id, options, request,
                    std::move(client), traffic_annotation,
                    std::move(proxy_factory), type, args);
       break;
@@ -545,7 +544,7 @@ void ElectronURLLoaderFactory::SendContents(
   head->headers->AddHeader("Access-Control-Allow-Origin", "*");
   client_remote->OnReceiveResponse(std::move(head));
 
-  // Code bellow follows the pattern of data_url_loader_factory.cc.
+  // Code below follows the pattern of data_url_loader_factory.cc.
   mojo::ScopedDataPipeProducerHandle producer;
   mojo::ScopedDataPipeConsumerHandle consumer;
   if (mojo::CreateDataPipe(nullptr, producer, consumer) != MOJO_RESULT_OK) {

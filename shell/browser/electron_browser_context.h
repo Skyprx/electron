@@ -8,7 +8,6 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/predictors/preconnect_manager.h"
@@ -48,9 +47,7 @@ class SpecialStoragePolicy;
 class WebViewManager;
 class ProtocolRegistry;
 
-class ElectronBrowserContext
-    : public content::BrowserContext,
-      public network::mojom::TrustedURLLoaderAuthClient {
+class ElectronBrowserContext : public content::BrowserContext {
  public:
   // partition_id => browser_context
   struct PartitionKey {
@@ -151,10 +148,6 @@ class ElectronBrowserContext
                          bool in_memory,
                          base::DictionaryValue options);
 
-  void OnLoaderCreated(int32_t request_id,
-                       mojo::PendingReceiver<network::mojom::TrustedAuthClient>
-                           header_client) override;
-
   // Initialize pref registry.
   void InitPrefs();
 
@@ -185,7 +178,6 @@ class ElectronBrowserContext
 
   // Shared URLLoaderFactory.
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
-  mojo::Receiver<network::mojom::TrustedURLLoaderAuthClient> auth_client_{this};
 
   network::mojom::SSLConfigPtr ssl_config_;
   mojo::Remote<network::mojom::SSLConfigClient> ssl_config_client_;

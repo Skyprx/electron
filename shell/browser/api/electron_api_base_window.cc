@@ -206,8 +206,15 @@ void BaseWindow::OnWindowRestore() {
 }
 
 void BaseWindow::OnWindowWillResize(const gfx::Rect& new_bounds,
+                                    const gfx::ResizeEdge& edge,
                                     bool* prevent_default) {
-  if (Emit("will-resize", new_bounds)) {
+  v8::Isolate* isolate = JavascriptEnvironment::GetIsolate();
+  v8::Locker locker(isolate);
+  v8::HandleScope handle_scope(isolate);
+  gin_helper::Dictionary info = gin::Dictionary::CreateEmpty(isolate);
+  info.Set("edge", edge);
+
+  if (Emit("will-resize", new_bounds, info)) {
     *prevent_default = true;
   }
 }
@@ -694,6 +701,10 @@ void BaseWindow::SetContentProtection(bool enable) {
 
 void BaseWindow::SetFocusable(bool focusable) {
   return window_->SetFocusable(focusable);
+}
+
+bool BaseWindow::IsFocusable() {
+  return window_->IsFocusable();
 }
 
 void BaseWindow::SetMenu(v8::Isolate* isolate, v8::Local<v8::Value> value) {
@@ -1243,6 +1254,7 @@ void BaseWindow::BuildPrototype(v8::Isolate* isolate,
       .SetMethod("setIgnoreMouseEvents", &BaseWindow::SetIgnoreMouseEvents)
       .SetMethod("setContentProtection", &BaseWindow::SetContentProtection)
       .SetMethod("setFocusable", &BaseWindow::SetFocusable)
+      .SetMethod("isFocusable", &BaseWindow::IsFocusable)
       .SetMethod("setMenu", &BaseWindow::SetMenu)
       .SetMethod("removeMenu", &BaseWindow::RemoveMenu)
       .SetMethod("setParentWindow", &BaseWindow::SetParentWindow)

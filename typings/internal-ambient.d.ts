@@ -1,8 +1,13 @@
 /* eslint-disable no-var */
 declare var internalBinding: any;
-declare var nodeProcess: any;
-declare var isolatedWorld: any;
 declare var binding: { get: (name: string) => any; process: NodeJS.Process; createPreloadScript: (src: string) => Function };
+
+declare var isolatedApi: {
+  guestViewInternal: any;
+  allowGuestViewElementDefinition: NodeJS.InternalWebFrame['allowGuestViewElementDefinition'];
+  setIsWebView: (iframe: HTMLIFrameElement) => void;
+  createNativeImage: typeof Electron.nativeImage['createEmpty'];
+}
 
 declare const BUILDFLAG: (flag: boolean) => boolean;
 
@@ -97,8 +102,30 @@ declare namespace NodeJS {
   }
 
   interface WebViewManagerBinding {
-    addGuest(guestInstanceId: number, elementInstanceId: number, embedder: Electron.WebContents, guest: Electron.WebContents, webPreferences: Electron.WebPreferences): void;
+    addGuest(guestInstanceId: number, embedder: Electron.WebContents, guest: Electron.WebContents, webPreferences: Electron.WebPreferences): void;
     removeGuest(embedder: Electron.WebContents, guestInstanceId: number): void;
+  }
+
+  interface InternalWebPreferences {
+    contextIsolation: boolean;
+    guestInstanceId: number;
+    hiddenPage: boolean;
+    nativeWindowOpen: boolean;
+    nodeIntegration: boolean;
+    openerId: number;
+    preload: string
+    preloadScripts: string[];
+    webviewTag: boolean;
+  }
+
+  interface InternalWebFrame extends Electron.WebFrame {
+    getWebPreference<K extends keyof InternalWebPreferences>(name: K): InternalWebPreferences[K];
+    getWebFrameId(window: Window): number;
+    allowGuestViewElementDefinition(context: object, callback: Function): void;
+  }
+
+  interface WebFrameBinding {
+    mainFrame: InternalWebFrame;
   }
 
   type DataPipe = {
@@ -218,6 +245,7 @@ declare namespace NodeJS {
     }
     _linkedBinding(name: 'electron_renderer_crash_reporter'): Electron.CrashReporter;
     _linkedBinding(name: 'electron_renderer_ipc'): { ipc: IpcRendererBinding };
+    _linkedBinding(name: 'electron_renderer_web_frame'): WebFrameBinding;
     log: NodeJS.WriteStream['write'];
     activateUvLoop(): void;
 

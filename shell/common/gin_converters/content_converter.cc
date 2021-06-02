@@ -5,7 +5,6 @@
 #include "shell/common/gin_converters/content_converter.h"
 
 #include <string>
-#include <vector>
 
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/native_web_keyboard_event.h"
@@ -152,6 +151,8 @@ v8::Local<v8::Value> Converter<content::PermissionType>::ToV8(
       return StringToV8(isolate, "clipboard-read");
     case content::PermissionType::CLIPBOARD_SANITIZED_WRITE:
       return StringToV8(isolate, "clipboard-sanitized-write");
+    case content::PermissionType::FILE_HANDLING:
+      return StringToV8(isolate, "file-handling");
     case content::PermissionType::FONT_ACCESS:
       return StringToV8(isolate, "font-access");
     case content::PermissionType::IDLE_DETECTION:
